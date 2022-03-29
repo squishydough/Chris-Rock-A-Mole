@@ -40,8 +40,25 @@
   text-align: right;
 }
 
+.buttonContainer {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.button {
+  padding: 16px;
+  font-size: 36px;
+}
+
 .slap {
   animation: fadeOut 0.75s;
+}
+
+.chrisRock {
+  cursor: pointer;
 }
 
 @keyframes fadeOut {

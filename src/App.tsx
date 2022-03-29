@@ -65,19 +65,14 @@ function App() {
       <header className="header">
         <div className="title">Chris Rock-A-Mole</div>
         <div className="score">Score: {score}</div>
-        <div className="actions">
-          {!isActive && (
-            <button type="button" onClick={() => setIsActive(true)}>
-              Start Game
-            </button>
-          )}
-        </div>
+        <div className="actions"></div>
       </header>
-      {isActive && (
+      {isActive ? (
         <React.Fragment>
           <img
             src={image.src}
             alt="Chris Rock's face - slap it!"
+            className="chrisRock"
             style={{
               position: 'absolute',
               left: `${image.x}px`,
@@ -99,6 +94,16 @@ function App() {
             />
           )}
         </React.Fragment>
+      ) : (
+        <div className="buttonContainer">
+          <button
+            type="button"
+            onClick={() => setIsActive(true)}
+            className="button"
+          >
+            Start Game
+          </button>
+        </div>
       )}
     </div>
   )
