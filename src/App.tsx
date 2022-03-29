@@ -39,7 +39,7 @@ function App() {
   })
 
   const [score, setScore] = React.useState(0)
-  const [isActive, setIsActive] = React.useState(false)
+  const [isActive, setIsActive] = React.useState(true)
 
   const handleImageClick = () => {
     setScore(score + 1)
@@ -68,7 +68,7 @@ function App() {
         <div className="actions"></div>
       </header>
       {isActive ? (
-        <React.Fragment>
+        <div className="imageContainer">
           <img
             src={image.src}
             alt="Chris Rock's face - slap it!"
@@ -81,19 +81,31 @@ function App() {
             onClick={handleImageClick}
           />
           {!image.isClickable && (
-            <img
-              src="/slap.png"
-              alt="Graphic stating SLAP!"
-              className="slap"
-              style={{
-                position: 'absolute',
-                left: `${image.x}px`,
-                top: `${image.y}px`,
-                zIndex: 2,
-              }}
-            />
+            <React.Fragment>
+              <img
+                src="/slap.png"
+                alt="Graphic stating SLAP!"
+                className="slap"
+                style={{
+                  position: 'absolute',
+                  left: `${image.x}px`,
+                  top: `${image.y}px`,
+                  zIndex: 2,
+                }}
+              />
+              <img
+                src="will.png"
+                alt="Will Smith about to slap a Chris Rock."
+                style={{
+                  position: 'absolute',
+                  left: `${image.x - 150}px`,
+                  top: `${image.y - 150}px`,
+                  zIndex: 2,
+                }}
+              />
+            </React.Fragment>
           )}
-        </React.Fragment>
+        </div>
       ) : (
         <div className="buttonContainer">
           <button

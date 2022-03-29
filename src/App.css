@@ -53,6 +53,10 @@
   font-size: 36px;
 }
 
+.imageContainer {
+  position: relative;
+}
+
 .slap {
   animation: fadeOut 0.75s;
 }
