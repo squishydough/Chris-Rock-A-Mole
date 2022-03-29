@@ -64,7 +64,11 @@ function App() {
     <div className="App">
       <header className="header">
         <div className="title">Chris Rock-A-Mole</div>
-        <div className="score">Score: {score}</div>
+        <div className="score">
+          SLAPS: {score}
+          <br />
+          <div style={{ fontSize: 11 }}>(You can't miss...yet)</div>
+        </div>
         <div className="actions"></div>
       </header>
       {isActive ? (
