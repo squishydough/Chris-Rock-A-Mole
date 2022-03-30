@@ -1,6 +1,14 @@
 import React from 'react'
 import './App.css'
 
+interface ChrisRock {
+  id: string
+  jokeImage: Image
+  hitImage: Image
+  x: number
+  y: number
+}
+
 interface Image {
   src: string
   width: number
@@ -19,7 +27,24 @@ const hitImages: Image[] = [
   { src: '/hit3.png', width: 175, height: 236 },
 ]
 
-function getRandomPosition(imageWidth: number, imageHeight: number) {
+const generateChrisRock = (jokeImageIndex: number | null = null) => {
+  const jokeImage =
+    jokeImageIndex === null ? getRandomJokeImage() : jokeImages[jokeImageIndex]
+  const hitImage = getRandomHitImage()
+  const { x, y } = getRandomPosition(jokeImage.width, jokeImage.height)
+  const id = `${jokeImage.src}-${hitImage.src}-${x}-${y}`
+
+  const newChrisRock: ChrisRock = {
+    jokeImage,
+    hitImage,
+    id,
+    x,
+    y,
+  }
+  return newChrisRock
+}
+
+const getRandomPosition = (imageWidth: number, imageHeight: number) => {
   return {
     x: randomNumber(0, window.innerWidth - imageWidth),
     y: randomNumber(0, window.innerHeight - imageHeight),
@@ -28,37 +53,44 @@ function getRandomPosition(imageWidth: number, imageHeight: number) {
 
 const getRandomJokeImage = () =>
   jokeImages[randomNumber(0, jokeImages.length - 1)]
+
 const getRandomHitImage = () => hitImages[randomNumber(0, hitImages.length - 1)]
 
+const randomNumber = (min: number, max: number) => {
+  return Math.floor(Math.random() * (max - min + 1)) + min
+}
+
 function App() {
-  const randomImage = getRandomJokeImage()
-  const [image, setImage] = React.useState({
-    ...randomImage,
-    ...getRandomPosition(randomImage.width, randomImage.height),
-    isClickable: true,
-  })
-
   const [score, setScore] = React.useState(0)
-  const [isActive, setIsActive] = React.useState(true)
+  const [isGameActive, setIsGameActive] = React.useState(true)
+  const [chrisRocks, setChrisRocks] = React.useState<ChrisRock[]>([])
 
-  const handleImageClick = () => {
-    setScore(score + 1)
-    setImage({
-      ...image,
-      ...getRandomHitImage(),
-      isClickable: false,
-    })
-    setTimeout(spawnNewImage, 500)
+  const handleImageClick = (chrisRockId: string) => {
+    const newScore = score + 1
+    const newChrisRocks = chrisRocks.filter(
+      (chrisRock) => chrisRock.id !== chrisRockId
+    )
+
+    setTimeout(() => {
+      const newChrisRock = generateChrisRock()
+      newChrisRocks.push(newChrisRock)
+      setScore(newScore)
+      setChrisRocks(newChrisRocks)
+    }, 500)
   }
 
-  const spawnNewImage = () => {
-    const randomImage = getRandomJokeImage()
-    setImage({
-      ...randomImage,
-      ...getRandomPosition(randomImage.width, randomImage.height),
-      isClickable: true,
-    })
-  }
+  /**
+   * Initially spawn one of each Chris Rock.
+   */
+  React.useEffect(() => {
+    const initialChrisRocks: ChrisRock[] = []
+
+    for (let i = 0; i < jokeImages.length; i++) {
+      const newChrisRock = generateChrisRock(i)
+      initialChrisRocks.push(newChrisRock)
+      setChrisRocks(initialChrisRocks)
+    }
+  }, [])
 
   return (
     <div className="App">
@@ -71,50 +103,23 @@ function App() {
         </div>
         <div className="actions"></div>
       </header>
-      {isActive ? (
-        <div className="imageContainer">
-          <img
-            src={image.src}
-            alt="Chris Rock's face - slap it!"
-            className="chrisRock"
-            style={{
-              position: 'absolute',
-              left: `${image.x}px`,
-              top: `${image.y}px`,
-            }}
-            onClick={handleImageClick}
+      {isGameActive ? (
+        chrisRocks.map(({ jokeImage, hitImage, x, y, id }) => (
+          <ChrisRockComponent
+            key={id}
+            id={id}
+            onClick={() => handleImageClick(id)}
+            jokeImage={jokeImage}
+            hitImage={hitImage}
+            x={x}
+            y={y}
           />
-          {!image.isClickable && (
-            <React.Fragment>
-              <img
-                src="/slap.png"
-                alt="Graphic stating SLAP!"
-                className="slap"
-                style={{
-                  position: 'absolute',
-                  left: `${image.x}px`,
-                  top: `${image.y}px`,
-                  zIndex: 2,
-                }}
-              />
-              <img
-                src="will.png"
-                alt="Will Smith about to slap a Chris Rock."
-                style={{
-                  position: 'absolute',
-                  left: `${image.x - 150}px`,
-                  top: `${image.y - 150}px`,
-                  zIndex: 2,
-                }}
-              />
-            </React.Fragment>
-          )}
-        </div>
+        ))
       ) : (
         <div className="buttonContainer">
           <button
             type="button"
-            onClick={() => setIsActive(true)}
+            onClick={() => setIsGameActive(true)}
             className="button"
           >
             Start Game
@@ -127,6 +132,66 @@ function App() {
 
 export default App
 
-function randomNumber(min: number, max: number) {
-  return Math.floor(Math.random() * (max - min + 1)) + min
+interface ChrisRockProps extends ChrisRock {
+  onClick(chrisRockId: string): void
+}
+
+function ChrisRockComponent({
+  onClick,
+  jokeImage,
+  hitImage,
+  x,
+  y,
+  id,
+}: ChrisRockProps) {
+  const [clickable, setClickable] = React.useState(true)
+
+  const handleClick = () => {
+    if (!clickable) {
+      return
+    }
+    setClickable(false)
+    onClick(id)
+  }
+
+  return (
+    <div className="imageContainer">
+      <img
+        src={clickable ? jokeImage.src : hitImage.src}
+        alt="Chris Rock's face - slap it!"
+        className="chrisRock"
+        style={{
+          position: 'absolute',
+          left: `${x}px`,
+          top: `${y}px`,
+        }}
+        onClick={handleClick}
+      />
+      {!clickable && (
+        <React.Fragment>
+          <img
+            src="/slap.png"
+            alt="Graphic stating SLAP!"
+            className="slap"
+            style={{
+              position: 'absolute',
+              left: `${x}px`,
+              top: `${y}px`,
+              zIndex: 2,
+            }}
+          />
+          <img
+            src="will.png"
+            alt="Will Smith about to slap a Chris Rock."
+            style={{
+              position: 'absolute',
+              left: `${x - 150}px`,
+              top: `${y - 150}px`,
+              zIndex: 2,
+            }}
+          />
+        </React.Fragment>
+      )}
+    </div>
+  )
 }
