@@ -1,13 +1,6 @@
 import React from 'react'
 import './App.css'
-
-interface ChrisRock {
-  id: string
-  jokeImage: Image
-  hitImage: Image
-  x: number
-  y: number
-}
+import { v4 as uuidv4 } from 'uuid'
 
 interface Image {
   src: string
@@ -15,49 +8,67 @@ interface Image {
   height: number
 }
 
-const jokeImages: Image[] = [
-  { src: '/joke1.png', width: 175, height: 292 },
-  { src: '/joke2.png', width: 175, height: 239 },
-  { src: '/joke3.png', width: 175, height: 238 },
-]
+interface ChrisRock {
+  id: string
+  unhitImage: Image
+  hitImage: Image
+  x: number
+  y: number
+}
 
-const hitImages: Image[] = [
-  { src: '/hit1.png', width: 175, height: 260 },
-  { src: '/hit2.png', width: 177, height: 236 },
-  { src: '/hit3.png', width: 175, height: 236 },
-]
+/**
+ * Basic configuration options for the game
+ */
+const CONFIG = {
+  // The maximum number of Chris Rocks to generate
+  maxSpawns: 1,
+  // The range of time that the Chris Rocks will be on screen
+  spawnDuration: {
+    min: 2000,
+    max: 4500,
+  },
+  // The range of time before a new Chris Rock will spawn
+  spawnInterval: {
+    min: 1000,
+    max: 2000,
+  },
+  // The images for the unhit and hit stage of the Chris Rock
+  images: {
+    unhit: [
+      { src: '/unhit1.png', width: 175, height: 292 },
+      { src: '/unhit2.png', width: 175, height: 239 },
+      { src: '/unhit3.png', width: 175, height: 238 },
+    ] as Image[],
+    hit: [
+      { src: '/hit1.png', width: 175, height: 260 },
+      { src: '/hit2.png', width: 177, height: 236 },
+      { src: '/hit3.png', width: 175, height: 236 },
+    ] as Image[],
+  },
+}
 
-const generateChrisRock = (jokeImageIndex: number | null = null) => {
-  const jokeImage =
-    jokeImageIndex === null ? getRandomJokeImage() : jokeImages[jokeImageIndex]
-  const hitImage = getRandomHitImage()
-  const { x, y } = getRandomPosition(jokeImage.width, jokeImage.height)
-  const id = `${jokeImage.src}-${hitImage.src}-${x}-${y}`
+const randomNumber = (min: number, max: number) =>
+  Math.floor(Math.random() * (max - min + 1)) + min
 
-  const newChrisRock: ChrisRock = {
-    jokeImage,
+const generateChrisRock = (
+  unhitImageIndex: number | null = null
+): ChrisRock => {
+  const unhitImage =
+    unhitImageIndex === null
+      ? CONFIG.images.unhit[randomNumber(0, CONFIG.images.unhit.length - 1)]
+      : CONFIG.images.unhit[unhitImageIndex]
+  const hitImage =
+    CONFIG.images.hit[randomNumber(0, CONFIG.images.hit.length - 1)]
+  const x = randomNumber(0, window.innerWidth - unhitImage.width)
+  const y = randomNumber(0, window.innerHeight - unhitImage.height)
+  const id = uuidv4()
+  return {
+    unhitImage,
     hitImage,
     id,
     x,
     y,
   }
-  return newChrisRock
-}
-
-const getRandomPosition = (imageWidth: number, imageHeight: number) => {
-  return {
-    x: randomNumber(0, window.innerWidth - imageWidth),
-    y: randomNumber(0, window.innerHeight - imageHeight),
-  }
-}
-
-const getRandomJokeImage = () =>
-  jokeImages[randomNumber(0, jokeImages.length - 1)]
-
-const getRandomHitImage = () => hitImages[randomNumber(0, hitImages.length - 1)]
-
-const randomNumber = (min: number, max: number) => {
-  return Math.floor(Math.random() * (max - min + 1)) + min
 }
 
 function App() {
@@ -65,32 +76,38 @@ function App() {
   const [isGameActive, setIsGameActive] = React.useState(true)
   const [chrisRocks, setChrisRocks] = React.useState<ChrisRock[]>([])
 
-  const handleImageClick = (chrisRockId: string) => {
-    const newScore = score + 1
-    const newChrisRocks = chrisRocks.filter(
-      (chrisRock) => chrisRock.id !== chrisRockId
-    )
+  const spawnChrisRock = React.useCallback(() => {
+    if (chrisRocks.length >= CONFIG.maxSpawns) {
+      return
+    }
+    const newChrisRock = generateChrisRock()
+    console.info(`Spawning new Chris Rock: ${newChrisRock.id}`)
+    setChrisRocks([...chrisRocks, newChrisRock])
 
-    setTimeout(() => {
-      const newChrisRock = generateChrisRock()
-      newChrisRocks.push(newChrisRock)
-      setScore(newScore)
-      setChrisRocks(newChrisRocks)
-    }, 500)
+    // Schedule the next spawn
+    const timeoutInterval = randomNumber(
+      CONFIG.spawnInterval.min,
+      CONFIG.spawnInterval.max
+    )
+    console.info(`Spawning new Chris Rock in ${timeoutInterval}ms`)
+    setTimeout(spawnChrisRock, timeoutInterval)
+  }, [chrisRocks])
+
+  const despawnChrisRock = (id: string, pointScored: boolean) => {
+    console.info(`Despawning Chris Rock: ${id}`)
+    setScore((prev) => (pointScored ? prev + 1 : prev - 1))
+    setChrisRocks(chrisRocks.filter((chrisRock) => chrisRock.id !== id))
   }
 
   /**
-   * Initially spawn one of each Chris Rock.
+   * Start spawning Chris Rocks
    */
   React.useEffect(() => {
-    const initialChrisRocks: ChrisRock[] = []
-
-    for (let i = 0; i < jokeImages.length; i++) {
-      const newChrisRock = generateChrisRock(i)
-      initialChrisRocks.push(newChrisRock)
-      setChrisRocks(initialChrisRocks)
+    if (!isGameActive) {
+      return
     }
-  }, [])
+    spawnChrisRock()
+  }, [isGameActive, spawnChrisRock])
 
   return (
     <div className="App">
@@ -104,15 +121,16 @@ function App() {
         <div className="actions"></div>
       </header>
       {isGameActive ? (
-        chrisRocks.map(({ jokeImage, hitImage, x, y, id }) => (
+        chrisRocks.map(({ unhitImage, hitImage, x, y, id }) => (
           <ChrisRockComponent
             key={id}
             id={id}
-            onClick={() => handleImageClick(id)}
-            jokeImage={jokeImage}
+            unhitImage={unhitImage}
             hitImage={hitImage}
             x={x}
             y={y}
+            onSlap={() => despawnChrisRock(id, true)}
+            onDespawn={() => despawnChrisRock(id, false)}
           />
         ))
       ) : (
@@ -132,18 +150,20 @@ function App() {
 
 export default App
 
-interface ChrisRockProps extends ChrisRock {
-  onClick(chrisRockId: string): void
+interface ChrisRockComponentProps extends ChrisRock {
+  onSlap(): void
+  onDespawn(): void
 }
 
 function ChrisRockComponent({
-  onClick,
-  jokeImage,
+  onSlap,
+  onDespawn,
+  unhitImage,
   hitImage,
   x,
   y,
   id,
-}: ChrisRockProps) {
+}: ChrisRockComponentProps) {
   const [clickable, setClickable] = React.useState(true)
 
   const handleClick = () => {
@@ -151,13 +171,32 @@ function ChrisRockComponent({
       return
     }
     setClickable(false)
-    onClick(id)
+    // setTimeout(onSlap, 500)
+    onSlap()
   }
+
+  /**
+   * Start the timer to despawn the Chris Rock
+   */
+  React.useEffect(() => {
+    const timeoutInterval = randomNumber(
+      CONFIG.spawnDuration.min,
+      CONFIG.spawnDuration.max
+    )
+    console.info(`Despawning Chris Rock in ${timeoutInterval}ms`)
+    const timeoutId = setTimeout(onDespawn, timeoutInterval)
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+    }
+  }, [onDespawn, id])
 
   return (
     <div className="imageContainer">
       <img
-        src={clickable ? jokeImage.src : hitImage.src}
+        src={clickable ? unhitImage.src : hitImage.src}
         alt="Chris Rock's face - slap it!"
         className="chrisRock"
         style={{
