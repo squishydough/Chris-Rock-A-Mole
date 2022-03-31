@@ -16,6 +16,11 @@ interface ChrisRock {
   y: number
 }
 
+interface State {
+  chrisRocks: ChrisRock[]
+  score: number
+}
+
 /**
  * Basic configuration options for the game
  */
@@ -73,7 +78,6 @@ const generateChrisRock = (
 
 function App() {
   const [score, setScore] = React.useState(0)
-  const [isGameActive, setIsGameActive] = React.useState(true)
   const [chrisRocks, setChrisRocks] = React.useState<ChrisRock[]>([])
 
   const spawnChrisRock = React.useCallback(() => {
@@ -81,7 +85,6 @@ function App() {
       return
     }
     const newChrisRock = generateChrisRock()
-    console.info(`Spawning new Chris Rock: ${newChrisRock.id}`)
     setChrisRocks([...chrisRocks, newChrisRock])
 
     // Schedule the next spawn
@@ -89,25 +92,15 @@ function App() {
       CONFIG.spawnInterval.min,
       CONFIG.spawnInterval.max
     )
-    console.info(`Spawning new Chris Rock in ${timeoutInterval}ms`)
     setTimeout(spawnChrisRock, timeoutInterval)
   }, [chrisRocks])
 
   const despawnChrisRock = (id: string, pointScored: boolean) => {
-    console.info(`Despawning Chris Rock: ${id}`)
     setScore((prev) => (pointScored ? prev + 1 : prev - 1))
     setChrisRocks(chrisRocks.filter((chrisRock) => chrisRock.id !== id))
   }
 
-  /**
-   * Start spawning Chris Rocks
-   */
-  React.useEffect(() => {
-    if (!isGameActive) {
-      return
-    }
-    spawnChrisRock()
-  }, [isGameActive, spawnChrisRock])
+  spawnChrisRock()
 
   return (
     <div className="App">
@@ -120,30 +113,18 @@ function App() {
         </div>
         <div className="actions"></div>
       </header>
-      {isGameActive ? (
-        chrisRocks.map(({ unhitImage, hitImage, x, y, id }) => (
-          <ChrisRockComponent
-            key={id}
-            id={id}
-            unhitImage={unhitImage}
-            hitImage={hitImage}
-            x={x}
-            y={y}
-            onSlap={() => despawnChrisRock(id, true)}
-            onDespawn={() => despawnChrisRock(id, false)}
-          />
-        ))
-      ) : (
-        <div className="buttonContainer">
-          <button
-            type="button"
-            onClick={() => setIsGameActive(true)}
-            className="button"
-          >
-            Start Game
-          </button>
-        </div>
-      )}
+      {chrisRocks.map(({ unhitImage, hitImage, x, y, id }) => (
+        <ChrisRockComponent
+          key={id}
+          id={id}
+          unhitImage={unhitImage}
+          hitImage={hitImage}
+          x={x}
+          y={y}
+          onSlap={() => despawnChrisRock(id, true)}
+          onDespawn={() => despawnChrisRock(id, false)}
+        />
+      ))}
     </div>
   )
 }
@@ -183,7 +164,6 @@ function ChrisRockComponent({
       CONFIG.spawnDuration.min,
       CONFIG.spawnDuration.max
     )
-    console.info(`Despawning Chris Rock in ${timeoutInterval}ms`)
     const timeoutId = setTimeout(onDespawn, timeoutInterval)
 
     return () => {
