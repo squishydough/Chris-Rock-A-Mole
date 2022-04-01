@@ -1,106 +1,34 @@
 import React from 'react'
 import './App.css'
-import { v4 as uuidv4 } from 'uuid'
-
-interface Image {
-  src: string
-  width: number
-  height: number
-}
-
-interface ChrisRock {
-  id: string
-  unhitImage: Image
-  hitImage: Image
-  x: number
-  y: number
-}
-
-interface State {
-  chrisRocks: ChrisRock[]
-  score: number
-}
-
-/**
- * Basic configuration options for the game
- */
-const CONFIG = {
-  // The maximum number of Chris Rocks to generate
-  maxSpawns: 1,
-  // The range of time that the Chris Rocks will be on screen
-  spawnDuration: {
-    min: 2000,
-    max: 4500,
-  },
-  // The range of time before a new Chris Rock will spawn
-  spawnInterval: {
-    min: 1000,
-    max: 2000,
-  },
-  // The images for the unhit and hit stage of the Chris Rock
-  images: {
-    unhit: [
-      { src: '/unhit1.png', width: 175, height: 292 },
-      { src: '/unhit2.png', width: 175, height: 239 },
-      { src: '/unhit3.png', width: 175, height: 238 },
-    ] as Image[],
-    hit: [
-      { src: '/hit1.png', width: 175, height: 260 },
-      { src: '/hit2.png', width: 177, height: 236 },
-      { src: '/hit3.png', width: 175, height: 236 },
-    ] as Image[],
-  },
-}
-
-const randomNumber = (min: number, max: number) =>
-  Math.floor(Math.random() * (max - min + 1)) + min
-
-const generateChrisRock = (
-  unhitImageIndex: number | null = null
-): ChrisRock => {
-  const unhitImage =
-    unhitImageIndex === null
-      ? CONFIG.images.unhit[randomNumber(0, CONFIG.images.unhit.length - 1)]
-      : CONFIG.images.unhit[unhitImageIndex]
-  const hitImage =
-    CONFIG.images.hit[randomNumber(0, CONFIG.images.hit.length - 1)]
-  const x = randomNumber(0, window.innerWidth - unhitImage.width)
-  const y = randomNumber(0, window.innerHeight - unhitImage.height)
-  const id = uuidv4()
-  return {
-    unhitImage,
-    hitImage,
-    id,
-    x,
-    y,
-  }
-}
+import { AnimatePresence, motion } from 'framer-motion'
+import {
+  initialState,
+  reducer,
+  addChrisRock,
+  removeChrisRock,
+  addToSpawnQueue,
+  removeFromSpawnQueue,
+  slapChrisRock,
+  updateScore,
+} from './slice'
+import { random } from './utils'
+import { CONFIG } from './config'
 
 function App() {
-  const [score, setScore] = React.useState(0)
-  const [chrisRocks, setChrisRocks] = React.useState<ChrisRock[]>([])
+  const [state, dispatch] = React.useReducer(reducer, initialState)
+  const { chrisRocks, score } = state
 
-  const spawnChrisRock = React.useCallback(() => {
-    if (chrisRocks.length >= CONFIG.maxSpawns) {
-      return
-    }
-    const newChrisRock = generateChrisRock()
-    setChrisRocks([...chrisRocks, newChrisRock])
-
-    // Schedule the next spawn
-    const timeoutInterval = randomNumber(
-      CONFIG.spawnInterval.min,
-      CONFIG.spawnInterval.max
-    )
-    setTimeout(spawnChrisRock, timeoutInterval)
-  }, [chrisRocks])
-
-  const despawnChrisRock = (id: string, pointScored: boolean) => {
-    setScore((prev) => (pointScored ? prev + 1 : prev - 1))
-    setChrisRocks(chrisRocks.filter((chrisRock) => chrisRock.id !== id))
+  const onSlap = (
+    id: string,
+    status: 'hit' | 'unhit',
+    x: number,
+    y: number
+  ) => {
+    if (status !== 'unhit') return
+    dispatch(slapChrisRock({ id, x, y }))
+    dispatch(updateScore(1))
+    dispatch(removeChrisRock(id))
   }
-
-  spawnChrisRock()
 
   return (
     <div className="App">
@@ -113,104 +41,78 @@ function App() {
         </div>
         <div className="actions"></div>
       </header>
-      {chrisRocks.map(({ unhitImage, hitImage, x, y, id }) => (
-        <ChrisRockComponent
-          key={id}
-          id={id}
-          unhitImage={unhitImage}
-          hitImage={hitImage}
-          x={x}
-          y={y}
-          onSlap={() => despawnChrisRock(id, true)}
-          onDespawn={() => despawnChrisRock(id, false)}
-        />
-      ))}
+      <AnimatePresence>
+        {chrisRocks.map((chrisRock) => (
+          <motion.button
+            /**
+             * Changing the `key` prop forces the component to re-render.
+             * The `key` gets '-hit' appended on when `slapChrisRock` is dispatched.
+             * This allows more customization of the exit animation,
+             * such as the duration, without using the built in `exit` prop.
+             */
+            key={chrisRock.id}
+            className="chrisRock-button"
+            initial={{ x: chrisRock.x, y: chrisRock.y, opacity: 1 }}
+            animate={{
+              /**
+               * Animate towards either the left or right side of the screen
+               */
+              x:
+                random(0, 1) === 0
+                  ? window.innerWidth + chrisRock.hitImage.width
+                  : 0 - chrisRock.hitImage.width,
+              /**
+               * Animates towards either the top or bottom of the screen
+               */
+              y:
+                random(0, 1) === 0
+                  ? window.innerHeight + chrisRock.hitImage.height
+                  : 0 - chrisRock.hitImage.height,
+              /**
+               * If hit, randomly rotate left or right.
+               */
+              rotate:
+                chrisRock.status === 'hit'
+                  ? random(0, 1) === 0
+                    ? -720
+                    : 720
+                  : undefined,
+              /**
+               * If hit, fade out the component.
+               */
+              opacity: chrisRock.status === 'hit' ? 0 : 1,
+            }}
+            transition={{
+              duration:
+                /**
+                 * If hit, duration should be 1 second.
+                 * If unhit, duration is a random number based on the CONFIG.
+                 */
+                chrisRock.status === 'hit'
+                  ? 1
+                  : random(CONFIG.spawnDuration.min, CONFIG.spawnDuration.max),
+              ease: 'linear',
+            }}
+            /**
+             * `e.clientX` and `e.clientY` are the coordinates of the mouse.
+             */
+            onClick={(e) =>
+              onSlap(chrisRock.id, chrisRock.status, e.clientX, e.clientY)
+            }
+          >
+            <img
+              src={
+                chrisRock.status === 'unhit'
+                  ? chrisRock.unhitImage.src
+                  : chrisRock.hitImage.src
+              }
+              alt="Face of Chris Rock, ready to slap!"
+            />
+          </motion.button>
+        ))}
+      </AnimatePresence>
     </div>
   )
 }
 
 export default App
-
-interface ChrisRockComponentProps extends ChrisRock {
-  onSlap(): void
-  onDespawn(): void
-}
-
-function ChrisRockComponent({
-  onSlap,
-  onDespawn,
-  unhitImage,
-  hitImage,
-  x,
-  y,
-  id,
-}: ChrisRockComponentProps) {
-  const [clickable, setClickable] = React.useState(true)
-
-  const handleClick = () => {
-    if (!clickable) {
-      return
-    }
-    setClickable(false)
-    // setTimeout(onSlap, 500)
-    onSlap()
-  }
-
-  /**
-   * Start the timer to despawn the Chris Rock
-   */
-  React.useEffect(() => {
-    const timeoutInterval = randomNumber(
-      CONFIG.spawnDuration.min,
-      CONFIG.spawnDuration.max
-    )
-    const timeoutId = setTimeout(onDespawn, timeoutInterval)
-
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId)
-      }
-    }
-  }, [onDespawn, id])
-
-  return (
-    <div className="imageContainer">
-      <img
-        src={clickable ? unhitImage.src : hitImage.src}
-        alt="Chris Rock's face - slap it!"
-        className="chrisRock"
-        style={{
-          position: 'absolute',
-          left: `${x}px`,
-          top: `${y}px`,
-        }}
-        onClick={handleClick}
-      />
-      {!clickable && (
-        <React.Fragment>
-          <img
-            src="/slap.png"
-            alt="Graphic stating SLAP!"
-            className="slap"
-            style={{
-              position: 'absolute',
-              left: `${x}px`,
-              top: `${y}px`,
-              zIndex: 2,
-            }}
-          />
-          <img
-            src="will.png"
-            alt="Will Smith about to slap a Chris Rock."
-            style={{
-              position: 'absolute',
-              left: `${x - 150}px`,
-              top: `${y - 150}px`,
-              zIndex: 2,
-            }}
-          />
-        </React.Fragment>
-      )}
-    </div>
-  )
-}
