@@ -5,7 +5,7 @@ import { Image } from './types'
  */
 export const CONFIG = {
   // The maximum number of Chris Rocks to generate
-  maxSpawns: 1,
+  maxSpawns: 5,
   // The range of seconds that the Chris Rocks will be on screen
   spawnDuration: {
     min: 3,

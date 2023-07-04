@@ -1,9 +1,8 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import { ChrisRock, State } from './types'
-import { createChrisRock } from './utils'
 
 const initialState = {
-  chrisRocks: [createChrisRock()],
+  chrisRocks: [],
   spawnQueue: [],
   score: 0,
 } as State
@@ -12,33 +11,31 @@ const slice = createSlice({
   name: 'slice',
   initialState,
   reducers: {
-    addChrisRock: (state, action: PayloadAction<ChrisRock>) => {
-      state.chrisRocks.push(action.payload)
+    removeChrisRock: (state, action: PayloadAction<{ id: string }>) => {
+      state.chrisRocks = state.chrisRocks.filter(
+        (c) => c.id !== action.payload.id
+      )
     },
-    removeChrisRock: (state, action: PayloadAction<string>) => {
-      state.chrisRocks = state.chrisRocks.filter((c) => c.id !== action.payload)
-    },
-    slapChrisRock: (
-      state,
-      action: PayloadAction<{ id: string; x: number; y: number }>
-    ) => {
+    slapChrisRock: (state, action: PayloadAction<{ id: string }>) => {
       state.chrisRocks = state.chrisRocks.map((c) =>
         c.id === action.payload.id
           ? {
               ...c,
               status: 'hit',
-              x: action.payload.x - c.hitImage.width / 2,
-              y: action.payload.y - c.hitImage.height / 2,
               id: `${c.id}-hit`,
             }
           : c
       )
     },
-    addToSpawnQueue: (state, action: PayloadAction<ChrisRock>) => {
-      state.spawnQueue.push(action.payload)
+    addToSpawnQueue: (state, actions: PayloadAction<ChrisRock>) => {
+      state.spawnQueue.push(actions.payload)
     },
-    removeFromSpawnQueue: (state, action: PayloadAction<string>) => {
-      state.spawnQueue = state.spawnQueue.filter((c) => c.id !== action.payload)
+    removeFromSpawnQueue: (state, action: PayloadAction<ChrisRock>) => {
+      console.info('removeFromSpawnQueue', action.payload)
+      state.chrisRocks.push(action.payload)
+      state.spawnQueue = state.spawnQueue.filter(
+        (c) => c.id !== action.payload.id
+      )
     },
     updateScore: (state, action: PayloadAction<number>) => {
       state.score = action.payload
@@ -48,7 +45,6 @@ const slice = createSlice({
 
 const { reducer, actions } = slice
 const {
-  addChrisRock,
   removeChrisRock,
   addToSpawnQueue,
   removeFromSpawnQueue,
@@ -58,7 +54,6 @@ const {
 export {
   initialState,
   reducer,
-  addChrisRock,
   removeChrisRock,
   addToSpawnQueue,
   removeFromSpawnQueue,

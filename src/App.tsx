@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   initialState,
   reducer,
-  addChrisRock,
   removeChrisRock,
   addToSpawnQueue,
   removeFromSpawnQueue,
@@ -13,22 +12,51 @@ import {
 } from './slice'
 import { random } from './utils'
 import { CONFIG } from './config'
+import { ChrisRock } from './types'
+import { v4 as uuidv4 } from 'uuid'
 
 function App() {
   const [state, dispatch] = React.useReducer(reducer, initialState)
-  const { chrisRocks, score } = state
+  const { chrisRocks, score, spawnQueue } = state
 
-  const onSlap = (
-    id: string,
-    status: 'hit' | 'unhit',
-    x: number,
-    y: number
-  ) => {
-    if (status !== 'unhit') return
-    dispatch(slapChrisRock({ id, x, y }))
-    dispatch(updateScore(1))
-    dispatch(removeChrisRock(id))
+  const onSlap = (id: string, status: 'hit' | 'unhit') => {
+    if (status === 'hit') return
+    const chrisRock = chrisRocks.find((c) => c.id === id)
+    if (!chrisRock) return
+    dispatch(slapChrisRock({ id }))
+    dispatch(updateScore(score + 1))
+    dispatch(removeChrisRock(chrisRock))
   }
+
+  /**
+   * Keep spawning Chris Rocks until the maxSpawns is reached.
+   */
+  React.useEffect(() => {
+    if (chrisRocks.length + spawnQueue.length >= CONFIG.maxSpawns) return
+
+    const unhitImage =
+      CONFIG.images.unhit[random(0, CONFIG.images.unhit.length - 1)]
+    const hitImage = CONFIG.images.hit[random(0, CONFIG.images.hit.length - 1)]
+
+    const newChrisRock = {
+      id: uuidv4(),
+      unhitImage,
+      hitImage,
+      x: random(0, window.innerWidth - unhitImage.width),
+      y: random(0, window.innerHeight - unhitImage.height),
+      status: 'unhit',
+    } as ChrisRock
+
+    console.info(`Creating a Chris Rock`)
+    console.info('chrisRocks', chrisRocks)
+    console.info('spawnQueue', spawnQueue)
+
+    dispatch(addToSpawnQueue(newChrisRock))
+
+    setTimeout(() => {
+      dispatch(removeFromSpawnQueue(newChrisRock))
+    }, random(CONFIG.spawnInterval.min, CONFIG.spawnInterval.max))
+  }, [chrisRocks.length, spawnQueue.length])
 
   return (
     <div className="App">
@@ -44,42 +72,11 @@ function App() {
       <AnimatePresence>
         {chrisRocks.map((chrisRock) => (
           <motion.button
-            /**
-             * Changing the `key` prop forces the component to re-render.
-             * The `key` gets '-hit' appended on when `slapChrisRock` is dispatched.
-             * This allows more customization of the exit animation,
-             * such as the duration, without using the built in `exit` prop.
-             */
             key={chrisRock.id}
             className="chrisRock-button"
-            initial={{ x: chrisRock.x, y: chrisRock.y, opacity: 1 }}
+            initial={{ opacity: 1 }}
             animate={{
-              /**
-               * Animate towards either the left or right side of the screen
-               */
-              x:
-                random(0, 1) === 0
-                  ? window.innerWidth + chrisRock.hitImage.width
-                  : 0 - chrisRock.hitImage.width,
-              /**
-               * Animates towards either the top or bottom of the screen
-               */
-              y:
-                random(0, 1) === 0
-                  ? window.innerHeight + chrisRock.hitImage.height
-                  : 0 - chrisRock.hitImage.height,
-              /**
-               * If hit, randomly rotate left or right.
-               */
-              rotate:
-                chrisRock.status === 'hit'
-                  ? random(0, 1) === 0
-                    ? -720
-                    : 720
-                  : undefined,
-              /**
-               * If hit, fade out the component.
-               */
+              scale: chrisRock.status === 'hit' ? 2 : 1,
               opacity: chrisRock.status === 'hit' ? 0 : 1,
             }}
             transition={{
@@ -96,9 +93,7 @@ function App() {
             /**
              * `e.clientX` and `e.clientY` are the coordinates of the mouse.
              */
-            onClick={(e) =>
-              onSlap(chrisRock.id, chrisRock.status, e.clientX, e.clientY)
-            }
+            onClick={(e) => onSlap(chrisRock.id, chrisRock.status)}
           >
             <img
               src={
